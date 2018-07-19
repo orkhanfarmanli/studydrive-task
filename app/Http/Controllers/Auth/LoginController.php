@@ -9,6 +9,8 @@ use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Support\Facades\Hash;
 use App\User;
 use Auth;
+use App\Mail\RegistrationMail;
+use Illuminate\Support\Facades\Mail;
 
 class LoginController extends Controller
 {
@@ -54,18 +56,25 @@ class LoginController extends Controller
 
     public function sendFailedLoginResponse(Request $request)
     {
+        // Validate user credentials
         $this->validate($request, [
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:5',
         ]);
 
+        // Create user
         $user = User::create([
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'active' => 0,
+            'register_token' => str_random(25)
         ]);
 
+        // Send mail to user for email confirmation
+        Mail::to($user)->send(new RegistrationMail($user));
+
+        // Authenticate and login the registered user
         $credentials = $request->only('email', 'password');
-        
         if (Auth::attempt($credentials)) {
             return redirect()->route('home');
         }
